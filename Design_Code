@@ -1,0 +1,14 @@
+module chanakyalink_design(
+
+    input  [7:0]  slave_id,
+    input  [7:0]  command,
+    input  [15:0] delay_time,
+
+    output [7:0] checksum
+
+);
+
+    assign checksum =
+           slave_id ^ command ^ delay_time[15:8] ^ delay_time[7:0];
+
+endmodule
