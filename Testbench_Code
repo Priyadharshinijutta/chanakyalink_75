@@ -1,0 +1,201 @@
+
+`timescale 1ns/1ps
+
+module chanakyalink_tb;
+
+    reg  [7:0]  slave_id;
+    reg  [7:0]  command;
+    reg  [15:0] delay_time;
+    wire [7:0] checksum;
+    integer i;
+
+    chanakyalink_design DUT (
+
+        .slave_id(slave_id),
+        .command(command),
+        .delay_time(delay_time),
+
+        .checksum(checksum)
+
+    );
+    initial begin
+
+        $display("CHANAKYALINK PROTOCOL OUTPUT");
+        $display("MASTER Initialized");
+        $display("MASTER Scanning Slave Nodes...");
+
+        #10;
+        $display("Slave 1 Connected");
+        #10;
+        $display("Slave 2 Connected");
+        #10;
+        $display("Slave 3 Connected");
+        $display("");
+        $display("MASTER Waiting for AI Slave Selection...");
+        $display("");
+        #20;
+
+        $display("AI Available Slave IDs : 1, 2, 3");
+        slave_id = 8'd2;
+        $display("AI Selected Slave ID   : %0d", slave_id);
+        $display("");
+        $display("MASTER AI Selection Received");
+        $display("");
+        command    = 8'd1;
+        delay_time = 16'd5000;
+        $display("Command         : ACTIVATE");
+        $display("Execution Delay : %0d ms", delay_time);
+        $display("");
+        #20;
+
+        $display("MASTER Generating Communication Frame...");
+        $display("");
+
+        $display("FRAME :");
+        $display("#%0d,%0d,%0d,%0d*",
+                  slave_id,
+                  command,
+                  delay_time,
+                  checksum);
+
+        $display("");
+
+        $display("FRAME FORMAT :");
+        $display("| START | SLAVE_ID | COMMAND | DELAY | CHECKSUM | STOP |");
+
+        $display("");
+
+        #20;
+
+        $display("[MASTER] Transmitting Frame to Slave %0d",
+                  slave_id);
+
+        $display("");
+        #20;
+
+        $display("--------------------------------------------------");
+        $display("");
+
+        $display("[SLAVE %0d] Incoming Frame Detected",
+                  slave_id);
+
+        $display("[SLAVE %0d] Frame Received Successfully",
+                  slave_id);
+
+        $display("");
+
+        $display("[SLAVE %0d] Extracting Frame Fields...",
+                  slave_id);
+
+        $display("");
+
+        $display("Slave ID   = %0d", slave_id);
+        $display("Command    = %0d", command);
+        $display("Delay      = %0d ms", delay_time);
+        $display("Checksum   = %0d", checksum);
+
+        $display("");
+
+        $display("[SLAVE %0d] Verifying Slave Address...",
+                  slave_id);
+
+        #20;
+
+        $display("[SLAVE %0d] Address Matched",
+                  slave_id);
+
+        $display("");
+
+        $display("[SLAVE %0d] Starting Delay Counter...",
+                  slave_id);
+
+        $display("");
+
+        for(i = 1; i <= 5; i = i + 1)
+        begin
+
+            #20;
+
+            $display("%0d000 ms elapsed", i);
+
+        end
+
+
+        #20;
+
+        $display("");
+
+        $display("[SLAVE %0d] Performing Checksum Verification...",
+                  slave_id);
+
+        $display("");
+
+        $display("Calculated Checksum = %0d",
+                  checksum);
+
+        $display("Received Checksum   = %0d",
+                  checksum);
+
+        $display("");
+
+        if(checksum ==
+           (slave_id ^
+            command ^
+            delay_time[15:8] ^
+            delay_time[7:0]))
+        begin
+
+            $display("[SLAVE %0d] Checksum Verification PASSED",
+                      slave_id);
+
+            $display("");
+
+            $display("--------------------------------------------------");
+            $display("");
+
+            $display("[SLAVE %0d] Executing Command...",
+                      slave_id);
+
+            $display("");
+
+            if(command == 8'd1)
+            begin
+
+                $display("[ACTION] DEVICE ACTIVATED");
+                $display("[ACTION] OUTPUT STATUS = HIGH");
+
+            end
+
+            else
+            begin
+
+                $display("[ACTION] DEVICE DEACTIVATED");
+                $display("[ACTION] OUTPUT STATUS = LOW");
+
+            end
+
+        end
+
+        else
+        begin
+
+            $display("[ERROR] Checksum Verification FAILED");
+
+        end
+        #20;
+
+        $display("");
+        $display("--------------------------------------------------");
+        $display("");
+
+        $display("[SYSTEM] Communication Successful");
+        $display("[SYSTEM] Execution Completed");
+
+        $display("");
+        $display("      CHANAKYALINK EXECUTION SUCCESSFUL");
+        #20;
+        $finish;
+
+    end
+
+endmodule
