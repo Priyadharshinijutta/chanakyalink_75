@@ -1,84 +1,168 @@
-//==============================================================
-// FILE: tb_chanakyalink.v
-// TESTBENCH
-//==============================================================
+//============================================================
+// FILE : protocol_tb.v
+//============================================================
 
 `timescale 1ns/1ps
 
-module tb_chanakyalink;
+module protocol_tb;
 
-    reg clk;
-    reg rst;
+reg clk;
+reg rst;
 
-    reg [2:0] threat_level;
-    reg [2:0] priority;
+wire [7:0] ai_slave;
+wire [15:0] ai_delay;
 
-    wire tx;
-    wire ack;
+wire [7:0] tx_slave_id;
+wire [7:0] tx_command;
+wire [15:0] tx_delay;
+wire [7:0] tx_checksum;
 
-    chanakyalink_master MASTER
-    (
-        .clk(clk),
-        .rst(rst),
-        .threat_level(threat_level),
-        .priority(priority),
-        .ack(ack),
-        .tx(tx)
-    );
+wire frame_valid;
 
-    chanakyalink_slave SLAVE
-    (
-        .clk(clk),
-        .rst(rst),
-        .rx(tx),
-        .ack(ack)
-    );
+wire exec1;
+wire exec2;
+wire exec3;
+wire exec4;
 
-    initial
-    begin
-        clk = 0;
-        forever #5 clk = ~clk;
-    end
+integer logfile;
 
-    initial
-    begin
+//============================================================
+// CLOCK
+//============================================================
 
-        rst = 1;
-        threat_level = 0;
-        priority = 0;
+always #5 clk = ~clk;
 
-        #100;
-        rst = 0;
+//============================================================
+// LOG FILE
+//============================================================
 
-        //-----------------------------------------
-        // CASE 1
-        //-----------------------------------------
+initial
+begin
+    logfile = $fopen("simulation_log.txt","w");
+end
 
-        threat_level = 6;
-        priority = 2;
+//============================================================
+// AI ENGINE
+//============================================================
 
-        #500000;
+ai_ml_engine AI(
+    .threat(2'b11),
+    .distance(2'b11),
+    .priority(2'b11),
 
-        //-----------------------------------------
-        // CASE 2
-        //-----------------------------------------
+    .slave_id(ai_slave),
+    .delay_value(ai_delay)
+);
 
-        threat_level = 2;
-        priority = 5;
+//============================================================
+// MASTER
+//============================================================
 
-        #500000;
+chanakyalink_master MASTER(
 
-        //-----------------------------------------
-        // CASE 3
-        //-----------------------------------------
+    .clk(clk),
+    .rst(rst),
 
-        threat_level = 1;
-        priority = 1;
+    .slave_id(ai_slave),
+    .delay_value(ai_delay),
 
-        #500000;
+    .tx_slave_id(tx_slave_id),
+    .tx_command(tx_command),
+    .tx_delay(tx_delay),
+    .tx_checksum(tx_checksum),
 
-        $finish;
+    .frame_valid(frame_valid)
+);
 
-    end
+//============================================================
+// SLAVES
+//============================================================
+
+chanakyalink_slave #(.MY_ID(1)) S1(
+    .clk(clk),
+    .rst(rst),
+
+    .slave_id(tx_slave_id),
+    .command(tx_command),
+    .delay_value(tx_delay),
+    .checksum(tx_checksum),
+
+    .frame_valid(frame_valid),
+
+    .cmd_execute(exec1)
+);
+
+chanakyalink_slave #(.MY_ID(2)) S2(
+    .clk(clk),
+    .rst(rst),
+
+    .slave_id(tx_slave_id),
+    .command(tx_command),
+    .delay_value(tx_delay),
+    .checksum(tx_checksum),
+
+    .frame_valid(frame_valid),
+
+    .cmd_execute(exec2)
+);
+
+chanakyalink_slave #(.MY_ID(3)) S3(
+    .clk(clk),
+    .rst(rst),
+
+    .slave_id(tx_slave_id),
+    .command(tx_command),
+    .delay_value(tx_delay),
+    .checksum(tx_checksum),
+
+    .frame_valid(frame_valid),
+
+    .cmd_execute(exec3)
+);
+
+chanakyalink_slave #(.MY_ID(4)) S4(
+    .clk(clk),
+    .rst(rst),
+
+    .slave_id(tx_slave_id),
+    .command(tx_command),
+    .delay_value(tx_delay),
+    .checksum(tx_checksum),
+
+    .frame_valid(frame_valid),
+
+    .cmd_execute(exec4)
+);
+
+//============================================================
+// TEST
+//============================================================
+
+initial
+begin
+
+    clk = 0;
+    rst = 1;
+
+    #20;
+
+    rst = 0;
+
+    $display("====================================");
+    $display("CHANAKYALINK PROTOCOL SIMULATION");
+    $display("====================================");
+
+    $fwrite(logfile,
+    "[MASTER] SYSTEM INITIALIZED\n");
+
+    #5000;
+
+    $display("====================================");
+    $display("SIMULATION COMPLETE");
+    $display("====================================");
+
+    $finish;
+
+end
 
 endmodule
