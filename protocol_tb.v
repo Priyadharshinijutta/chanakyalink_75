@@ -7,9 +7,19 @@ reg rst;
 
 reg start;
 
-wire tx_line;
+wire tx;
 
-wire master_done;
+wire ack1;
+wire nack1;
+
+wire ack2;
+wire nack2;
+
+wire ack3;
+wire nack3;
+
+wire done;
+wire error;
 
 reg [7:0] slave_id;
 reg [7:0] command;
@@ -23,10 +33,8 @@ end
 
 initial
 begin
-
     $dumpfile("chanakyalink.vcd");
     $dumpvars(0, protocol_tb);
-
 end
 
 chanakyalink_master MASTER
@@ -34,11 +42,18 @@ chanakyalink_master MASTER
     .clk(clk),
     .rst(rst),
     .start(start),
+
+    .ack(ack1 | ack2 | ack3),
+    .nack(nack1 | nack2 | nack3),
+
     .slave_id(slave_id),
     .command(command),
     .delay_value(delay_value),
-    .tx(tx_line),
-    .done(master_done)
+
+    .tx(tx),
+
+    .done(done),
+    .error(error)
 );
 
 wire [7:0] rx_data;
@@ -49,12 +64,13 @@ UART_RX
 (
     .clk(clk),
     .rst(rst),
-    .rx(tx_line),
+    .rx(tx),
     .rx_data(rx_data),
     .rx_done(rx_done)
 );
 
-reg [7:0] frame_mem [0:4];
+reg [7:0] frame [0:6];
+
 integer index;
 
 always @(posedge clk)
@@ -62,10 +78,9 @@ begin
 
     if(rx_done)
     begin
-        frame_mem[index] <= rx_data;
+        frame[index] <= rx_data;
         index <= index + 1;
     end
-
 end
 
 wire exec1;
@@ -78,12 +93,17 @@ SLAVE1
     .clk(clk),
     .rst(rst),
 
-    .rx_valid(index == 5),
+    .rx_valid(index == 7),
 
-    .slave_id(frame_mem[0]),
-    .command(frame_mem[1]),
-    .delay_value({frame_mem[2],frame_mem[3]}),
-    .checksum(frame_mem[4]),
+    .start_byte(frame[0]),
+    .slave_id(frame[1]),
+    .command(frame[2]),
+    .delay_value({frame[3],frame[4]}),
+    .checksum(frame[5]),
+    .stop_byte(frame[6]),
+
+    .ack(ack1),
+    .nack(nack1),
 
     .cmd_execute(exec1)
 );
@@ -94,12 +114,17 @@ SLAVE2
     .clk(clk),
     .rst(rst),
 
-    .rx_valid(index == 5),
+    .rx_valid(index == 7),
 
-    .slave_id(frame_mem[0]),
-    .command(frame_mem[1]),
-    .delay_value({frame_mem[2],frame_mem[3]}),
-    .checksum(frame_mem[4]),
+    .start_byte(frame[0]),
+    .slave_id(frame[1]),
+    .command(frame[2]),
+    .delay_value({frame[3],frame[4]}),
+    .checksum(frame[5]),
+    .stop_byte(frame[6]),
+
+    .ack(ack2),
+    .nack(nack2),
 
     .cmd_execute(exec2)
 );
@@ -110,12 +135,17 @@ SLAVE3
     .clk(clk),
     .rst(rst),
 
-    .rx_valid(index == 5),
+    .rx_valid(index == 7),
 
-    .slave_id(frame_mem[0]),
-    .command(frame_mem[1]),
-    .delay_value({frame_mem[2],frame_mem[3]}),
-    .checksum(frame_mem[4]),
+    .start_byte(frame[0]),
+    .slave_id(frame[1]),
+    .command(frame[2]),
+    .delay_value({frame[3],frame[4]}),
+    .checksum(frame[5]),
+    .stop_byte(frame[6]),
+
+    .ack(ack3),
+    .nack(nack3),
 
     .cmd_execute(exec3)
 );
@@ -143,26 +173,25 @@ begin
 
     start = 0;
 
-    #5000;
+    #10000;
 
     if(exec1 == 0 &&
        exec2 == 1 &&
        exec3 == 0)
     begin
-        $display("ADDRESS MATCH TEST PASSED");
+        $display("MULTI SLAVE TEST PASSED");
     end
 
     else
     begin
-        $display("ADDRESS MATCH TEST FAILED");
+        $display("MULTI SLAVE TEST FAILED");
     end
 
-    frame_mem[4] = 8'hFF;
+    frame[5] = 8'hFF;
 
     #2000;
 
-    if(exec1 == 0 &&
-       exec3 == 0)
+    if(error)
     begin
         $display("CHECKSUM FAILURE TEST PASSED");
     end
