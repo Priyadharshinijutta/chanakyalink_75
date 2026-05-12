@@ -1,8 +1,9 @@
-//============================================================
-// FILE : uart_tx.v
-//============================================================
+module uart_tx
+#(
+parameter CLKS_PER_BIT = 87
+)
 
-module uart_tx(
+(
     input clk,
     input rst,
 
@@ -10,48 +11,60 @@ module uart_tx(
     input [7:0] tx_data,
 
     output reg tx,
-    output reg busy
+    output reg tx_busy
 );
 
+reg [15:0] clk_count;
 reg [3:0] bit_index;
-reg [9:0] shift_reg;
+reg [9:0] tx_shift;
 
 always @(posedge clk or posedge rst)
 begin
 
     if(rst)
     begin
-        tx <= 1'b1;
-        busy <= 0;
+        tx <= 1;
+        tx_busy <= 0;
+        clk_count <= 0;
         bit_index <= 0;
-        shift_reg <= 10'b1111111111;
     end
 
     else
     begin
 
-        if(tx_start && !busy)
+        if(tx_start && !tx_busy)
         begin
-            shift_reg <= {1'b1, tx_data, 1'b0};
-            busy <= 1;
+            tx_shift <= {1'b1, tx_data, 1'b0};
+            tx_busy <= 1;
             bit_index <= 0;
+            clk_count <= 0;
         end
 
-        else if(busy)
+        else if(tx_busy)
         begin
-            tx <= shift_reg[0];
-            shift_reg <= shift_reg >> 1;
-            bit_index <= bit_index + 1;
 
-            if(bit_index == 9)
+            if(clk_count < CLKS_PER_BIT-1)
             begin
-                busy <= 0;
-                tx <= 1'b1;
+                clk_count <= clk_count + 1;
+            end
+
+            else
+            begin
+                clk_count <= 0;
+
+                tx <= tx_shift[bit_index];
+
+                if(bit_index < 9)
+                    bit_index <= bit_index + 1;
+
+                else
+                begin
+                    tx_busy <= 0;
+                    tx <= 1;
+                end
             end
         end
-
     end
-
 end
 
 endmodule
