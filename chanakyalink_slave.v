@@ -1,117 +1,137 @@
-//==============================================================
-// FILE: chanakyalink_slave.v
-// SLAVE NODE
-//==============================================================
+//============================================================
+// FILE : chanakyalink_slave.v
+//============================================================
 
 module chanakyalink_slave
+#(
+    parameter MY_ID = 1
+)
 (
     input clk,
     input rst,
 
-    input rx,
+    input [7:0] slave_id,
+    input [7:0] command,
+    input [15:0] delay_value,
+    input [7:0] checksum,
 
-    output reg ack
+    input frame_valid,
+
+    output reg cmd_execute
 );
 
-    wire rx_done;
-    wire [7:0] rx_data;
+reg [15:0] delay_counter;
+reg [7:0] calc_checksum;
 
-    reg [7:0] slave_id;
-    reg [7:0] command;
-    reg [15:0] delay_value;
-    reg [7:0] recv_checksum;
+localparam IDLE  = 2'd0;
+localparam VERIFY = 2'd1;
+localparam DELAY  = 2'd2;
+localparam EXECUTE = 2'd3;
 
-    reg [7:0] calc_checksum;
+reg [1:0] state;
 
-    reg [2:0] byte_count;
+always @(posedge clk or posedge rst)
+begin
 
-    uart_rx UART_RX
-    (
-        .clk(clk),
-        .rst(rst),
-        .rx_serial(rx),
-        .rx_done(rx_done),
-        .rx_data(rx_data)
-    );
+    if(rst)
+    begin
+        state <= IDLE;
+        cmd_execute <= 0;
+        delay_counter <= 0;
+    end
 
-    always @(posedge clk or posedge rst)
+    else
     begin
 
-        if(rst)
-        begin
-            byte_count <= 0;
-            ack <= 0;
-        end
+        case(state)
 
-        else
+        IDLE:
         begin
+            cmd_execute <= 0;
 
-            if(rx_done)
+            if(frame_valid)
             begin
 
-                case(byte_count)
-
-                0:
+                if(slave_id == MY_ID)
                 begin
-                    slave_id <= rx_data;
-                    byte_count <= 1;
+                    $display("[SLAVE %0d] FRAME ACCEPTED", MY_ID);
+
+                    calc_checksum =
+                        slave_id ^
+                        command ^
+                        delay_value[15:8] ^
+                        delay_value[7:0];
+
+                    state <= VERIFY;
                 end
 
-                1:
+                else
                 begin
-                    command <= rx_data;
-                    byte_count <= 2;
+                    $display("[SLAVE %0d] FRAME IGNORED", MY_ID);
                 end
 
-                2:
-                begin
-                    delay_value[15:8] <= rx_data;
-                    byte_count <= 3;
-                end
+            end
+        end
 
-                3:
-                begin
-                    delay_value[7:0] <= rx_data;
-                    byte_count <= 4;
-                end
+        VERIFY:
+        begin
 
-                4:
-                begin
-                    recv_checksum <= rx_data;
+            if(calc_checksum == checksum)
+            begin
+                $display("[SLAVE %0d] CHECKSUM PASSED", MY_ID);
 
-                    calc_checksum <= slave_id ^
-                                     command ^
-                                     delay_value[15:8] ^
-                                     delay_value[7:0];
+                delay_counter <= delay_value;
 
-                    $display("\n[SLAVE] Packet Received");
-                    $display("ID       = %0d", slave_id);
-                    $display("COMMAND  = %0d", command);
-                    $display("DELAY    = %0d", delay_value);
-
-                    if(recv_checksum == calc_checksum)
-                    begin
-                        $display("[SLAVE] Checksum PASS");
-                        ack <= 1;
-                    end
-                    else
-                    begin
-                        $display("[SLAVE] Checksum FAIL");
-                        ack <= 0;
-                    end
-
-                    byte_count <= 0;
-                end
-
-                endcase
-
+                state <= DELAY;
             end
 
             else
-                ack <= 0;
+            begin
+                $display("[SLAVE %0d] CHECKSUM FAILED", MY_ID);
+
+                state <= IDLE;
+            end
 
         end
 
+        DELAY:
+        begin
+
+            if(delay_counter > 0)
+            begin
+                delay_counter <= delay_counter - 1;
+            end
+
+            else
+            begin
+                state <= EXECUTE;
+            end
+
+        end
+
+        EXECUTE:
+        begin
+
+            cmd_execute <= 1;
+
+            if(command == 1)
+            begin
+                $display("[SLAVE %0d] DEVICE ACTIVATED", MY_ID);
+            end
+
+            else
+            begin
+                $display("[SLAVE %0d] DEVICE DEACTIVATED", MY_ID);
+            end
+
+            state <= IDLE;
+
+        end
+
+        endcase
+
     end
+
+end
 
 endmodule
